@@ -1,0 +1,61 @@
+units real
+atom_style full
+boundary f f f
+
+pair_style lj/cut/coul/cut 12.0
+pair_modify mix arithmetic
+bond_style harmonic
+angle_style harmonic
+dihedral_style opls
+improper_style cvff
+special_bonds lj/coul 0.0 0.0 0.5
+neighbor 2.0 bin
+neigh_modify every 1 delay 0 check yes
+
+read_data ${directory_molecules}/${filename_molecule}
+
+timestep 1.0
+
+change_box all x final -20.0 60.0 y final -20.0 60.0 z final -20.0 60.0
+
+compute myCom all com
+compute myRg all gyration
+variable rCM equal sqrt(c_myCom[1]^2 + c_myCom[2]^2 + c_myCom[3]^2)
+
+run 0
+
+variable cx equal c_myCom[1]
+variable cy equal c_myCom[2]
+variable cz equal c_myCom[3]
+variable dx equal -v_cx
+variable dy equal -v_cy
+variable dz equal -v_cz
+displace_atoms all move v_dx v_dy v_dz units box
+
+min_style cg
+minimize 1.0e-4 1.0e-6 1000 10000
+
+fix F_NVT all nvt temp ${temp} ${temp} 100.0
+
+reset_timestep 0
+
+dump dump_nvt all custom ${dt_nvt} ${directory_data}/${directory_nvt}/${filename_traj_nvt}_0.lammpstrj id type x y z xu yu zu vx vy vz
+dump_modify dump_nvt sort id
+
+thermo_style custom step temp pe ke etotal press v_rCM c_myRg
+thermo 1000
+
+run ${t_nvt}
+undump dump_nvt
+
+variable i loop ${n_sim}
+label loop
+dump dump_nvt_${i} all custom ${dt_nvt} ${directory_data}/${directory_nvt}/${filename_traj_nvt}_${i}.lammpstrj id type x y z xu yu zu vx vy vz
+dump_modify dump_nvt_${i} sort id
+run ${t_restart_nvt}
+undump dump_nvt_${i}
+write_restart ${directory_input}/${directory_nvt}/${filename_restart_nvt}.${i}
+next i
+jump SELF loop
+
+unfix F_NVT

@@ -1,0 +1,33 @@
+units real
+atom_style full
+boundary f f f
+
+pair_style lj/cut/coul/cut 12.0
+pair_modify mix arithmetic
+bond_style harmonic
+angle_style harmonic
+dihedral_style opls
+improper_style cvff
+special_bonds lj/coul 0.0 0.0 0.5
+neighbor 2.0 bin
+neigh_modify every 1 delay 0 check yes
+
+read_restart ${directory_input}/${directory_nve}/${filename_restart_nve}.${index}
+
+timestep 1.0
+
+compute myCom all com
+compute myRg all gyration
+variable rCM equal sqrt(c_myCom[1]^2 + c_myCom[2]^2 + c_myCom[3]^2)
+
+thermo_style custom step temp pe ke etotal press v_rCM c_myRg
+thermo 200
+
+fix F_NVE all nve
+
+${custom_commands}
+
+dump dump_neq all custom ${dt_neq} ${directory_data}/${directory_neq}/${filename_traj_neq}_${index}.lammpstrj id type x y z xu yu zu vx vy vz ix iy iz
+dump_modify dump_neq sort id
+
+run ${t_neq}
